@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 const express = require('express');
 const router = express.Router();
 
@@ -76,19 +74,24 @@ async function authorize() {
  * Prints the names and majors of students in a sample spreadsheet:
  * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
  */
-async function listMajors(auth) {
+async function listNicknames(auth) {
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = process.env.CONVERTKIT_SPREADSHEET_ID;
-    const range = 'Página1!A1';
+    const spreadsheetId = '1ZRNOL_QfEmg6Z1SqQE3IpwTQJlpYWEpWGdPR627LGzg';
+    const range = 'Página1!B1';
 
     // Obter o número da última linha com conteúdo
     const lastRow = await sheets.spreadsheets.values.get({
         spreadsheetId,
         range: 'Página1!A:A',
-    }).then(res => res.data.values.length);
+    }).then(res => res.data.values ? res.data.values.length : 0);
+    
+    if (lastRow === 0) {
+        console.log('No data found.');
+        return;
+    }
 
     // Atualizar o range para incluir a última linha
-    const updatedRange = `${range}:A${lastRow}`;
+    const updatedRange = `${range}:B${lastRow}`;
 
     const res = await sheets.spreadsheets.values.get({
         spreadsheetId,
@@ -96,21 +99,13 @@ async function listMajors(auth) {
     });
 
     const rows = res.data.values;
-    if (!rows || rows.length === 0) {
-        console.log('No data found.');
-        return;
-    }
-
-    rows.forEach((row) => {
-        console.log(`${row[0]}`);
-    });
 
     return rows;
 }
 
 async function addOrder(auth, nickname) {
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = process.env.CONVERTKIT_SPREADSHEET_ID;
+    const spreadsheetId = '1ZRNOL_QfEmg6Z1SqQE3IpwTQJlpYWEpWGdPR627LGzg';
 
     // Obter o número da última linha com conteúdo
     const lastRow = await sheets.spreadsheets.values.get({
@@ -124,7 +119,7 @@ async function addOrder(auth, nickname) {
     const formattedDate = date.getDay() + '/' + (date.getMonth() + 1) + '/' + date.getFullYear();
 
     try {
-        sheets.spreadsheets.values.update({
+        await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: updatedRange,
             valueInputOption: 'USER_ENTERED',
@@ -139,17 +134,23 @@ async function addOrder(auth, nickname) {
     }
 }
 
-router.get('/names', (req, res) => {
+router.get('/nicknames', (req, res) => {
     authorize()
-        .then(listMajors)
+        .then(listNicknames)
         .then((rows) => {
-            const names = rows.map(row => row[0]);
-            const strNames = names.join(', ');
-
-            res.status(200);
-            res.send({
-                nicknames: strNames
-            });
+            if (rows) {
+                const nicknames = rows.map(row => row[0]);
+                const strNicknames = nicknames.join(', ');
+    
+                res.send({
+                    nicknames: strNicknames
+                }); 
+            }
+            else {
+                res.send({
+                    nicknames: ''
+                });
+            }
         })
         .catch(console.error);
 });
@@ -160,7 +161,6 @@ router.get('/add/:nickname', (req, res) => {
     authorize()
         .then((result) => addOrder(result, nickname))
         .then(() => {
-            res.status(200);
             res.send({
                 messagem: 'Pedido enviado com sucesso!',
             });
