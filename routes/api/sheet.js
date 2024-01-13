@@ -7,41 +7,34 @@ const process = require('process');
 const { authenticate } = require('@google-cloud/local-auth');
 const { google } = require('googleapis');
 
-// If modifying these scopes, delete token.json.
+
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
-// The file token.json stores the user's access and refresh tokens, and is
-// created automatically when the authorization flow completes for the first time.
-const TOKEN_PATH = path.join(process.cwd(), 'token.json');
-const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
+const CREDENTIALS_JSON = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
+const CREDENTIALS = JSON.parse(CREDENTIALS_JSON);
+
+const TOKEN_JSON = Buffer.from(process.env.GOOGLE_TOKEN_BASE64, 'base64').toString('utf-8');
+const TOKEN = JSON.parse(TOKEN_JSON);
 
 /**
  * Reads previously authorized credentials from the save file.
- *
  * @return {Promise<OAuth2Client|null>}
  */
 async function loadSavedCredentialsIfExist() {
     try {
-        const content = await fs.readFile(TOKEN_PATH);
-        const credentials = JSON.parse(content);
+        const credentials = TOKEN
         return google.auth.fromJSON(credentials);
     } catch (err) {
+        console.error("Error loading credentials from Local Storage", err);
         return null;
     }
 }
 
-/**
- * Serializes credentials to a file comptible with GoogleAUth.fromJSON.
- *
- * @param {OAuth2Client} client
- * @return {Promise<void>}
- */
-async function saveCredentials(client) {
-    const content = await fs.readFile(CREDENTIALS_PATH);
-    const keys = JSON.parse(content);
+
+/* async function saveCredentials(client) {
+    const keys = CREDENTIALS;
     const key = keys.installed || keys.web;
 
-    console.log(key);
     const payload = JSON.stringify({
         type: 'authorized_user',
         client_id: key.client_id,
@@ -49,12 +42,12 @@ async function saveCredentials(client) {
         refresh_token: client.credentials.refresh_token,
     });
     await fs.writeFile(TOKEN_PATH, payload);
-}
+} */
 
 /**
  * Load or request or authorization to call APIs.
- *
  */
+
 async function authorize() {
     let client = await loadSavedCredentialsIfExist();
     if (client) {
@@ -62,84 +55,81 @@ async function authorize() {
     }
     client = await authenticate({
         scopes: SCOPES,
-        keyfilePath: CREDENTIALS_PATH,
+        credentials: CREDENTIALS,
     });
+
     if (client.credentials) {
         await saveCredentials(client);
     }
     return client;
 }
 
-/**
- * Prints the names and majors of students in a sample spreadsheet:
- * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
- */
+
 async function listNicknames(auth) {
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = '1ZRNOL_QfEmg6Z1SqQE3IpwTQJlpYWEpWGdPR627LGzg';
-    const range = 'Página1!B1';
+    const spreadsheetId = process.env.SPREADSHEET_ID;
 
-    // Obter o número da última linha com conteúdo
-    const lastRow = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Página1!A:A',
-    }).then(res => res.data.values ? res.data.values.length : 0);
-    
-    if (lastRow === 0) {
-        console.log('No data found.');
-        return;
+    try {
+        const rangeResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: 'Página1!A:A',
+        });
+
+        const lastRow = rangeResponse.data.values ? rangeResponse.data.values.length : 0;
+        if (lastRow-1 === 0) return [];
+
+        const res = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `Página1!B2:B${lastRow}`,
+        });
+
+        return res.data.values || [];
+    } catch (error) {
+        console.error('Error retrieving data from Sheets:', error);
+        return [];
     }
-
-    // Atualizar o range para incluir a última linha
-    const updatedRange = `${range}:B${lastRow}`;
-
-    const res = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: updatedRange,
-    });
-
-    const rows = res.data.values;
-
-    return rows;
 }
 
 async function addOrder(auth, nickname) {
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = '1ZRNOL_QfEmg6Z1SqQE3IpwTQJlpYWEpWGdPR627LGzg';
+    const spreadsheetId = process.env.SPREADSHEET_ID;
 
-    // Obter o número da última linha com conteúdo
-    const lastRow = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Página1!A:A',
-    }).then(res => res.data.values ? res.data.values.length : 0);
+    let lastRow = 0;
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: 'Página1!A:A',
+        });
+        lastRow = response.data.values ? response.data.values.length : 0;
+    } catch (err) {
+        console.error('Error getting last row:', err);
+        return;
+    }
 
-    // Atualizar o range para incluir a última linha
-    const updatedRange = `A${lastRow + 1}`;
     const date = new Date();
-    const formattedDate = date.getDay() + '/' + (date.getMonth() + 1) + '/' + date.getFullYear();
+    const formattedDate = `=DATE(${date.getFullYear()};${date.getMonth()+1};${date.getDay()})`;
+    const updatedRange = `A${lastRow + 1}`;
 
     try {
         await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: updatedRange,
             valueInputOption: 'USER_ENTERED',
-            resource: {
-                values: [
-                    [formattedDate, nickname]
-                ]
-            }
+            resource: { values: [[formattedDate, nickname]] }
         });
     } catch (err) {
+        console.error('Error updating sheet:', err);
         throw err;
     }
 }
+
 
 router.get('/nicknames', (req, res) => {
     authorize()
         .then(listNicknames)
         .then((rows) => {
-            if (rows) {
-                const nicknames = rows.map(row => row[0]);
+            if (rows.length > 0) {
+                const nicknames = rows.map(row => row[0].replace('@', ''));
                 const strNicknames = nicknames.join(', ');
     
                 res.send({
@@ -148,7 +138,7 @@ router.get('/nicknames', (req, res) => {
             }
             else {
                 res.send({
-                    nicknames: ''
+                    nicknames: 'Nenhum pedido encontrado.'
                 });
             }
         })
