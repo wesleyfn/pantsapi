@@ -107,7 +107,7 @@ async function addOrder(auth, nickname) {
     }
 
     const date = new Date();
-    const formattedDate = `=DATE(${date.getFullYear()};${date.getMonth()+1};${date.getDay()})`;
+    const formattedDate = `=DATE(${date.getFullYear()};${date.getMonth()+1};${date.getDate()})`;
     const updatedRange = `A${lastRow + 1}`;
 
     try {
