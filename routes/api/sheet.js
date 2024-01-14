@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 
-const fs = require('fs').promises;
-const path = require('path');
 const process = require('process');
 const { authenticate } = require('@google-cloud/local-auth');
 const { google } = require('googleapis');
@@ -16,10 +14,12 @@ const CREDENTIALS = JSON.parse(CREDENTIALS_JSON);
 const TOKEN_JSON = Buffer.from(process.env.GOOGLE_TOKEN_BASE64, 'base64').toString('utf-8');
 const TOKEN = JSON.parse(TOKEN_JSON);
 
-/**
- * Reads previously authorized credentials from the save file.
- * @return {Promise<OAuth2Client|null>}
- */
+
+function formatDate(date) {
+    const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+    return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }, options);
+}
+
 async function loadSavedCredentialsIfExist() {
     try {
         const credentials = TOKEN
@@ -29,24 +29,6 @@ async function loadSavedCredentialsIfExist() {
         return null;
     }
 }
-
-
-/* async function saveCredentials(client) {
-    const keys = CREDENTIALS;
-    const key = keys.installed || keys.web;
-
-    const payload = JSON.stringify({
-        type: 'authorized_user',
-        client_id: key.client_id,
-        client_secret: key.client_secret,
-        refresh_token: client.credentials.refresh_token,
-    });
-    await fs.writeFile(TOKEN_PATH, payload);
-} */
-
-/**
- * Load or request or authorization to call APIs.
- */
 
 async function authorize() {
     let client = await loadSavedCredentialsIfExist();
@@ -64,8 +46,7 @@ async function authorize() {
     return client;
 }
 
-
-async function listNicknames(auth) {
+async function listOrders(auth) {
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.SPREADSHEET_ID;
 
@@ -107,7 +88,7 @@ async function addOrder(auth, nickname) {
     }
 
     const date = new Date();
-    const formattedDate = `=DATE(${date.getFullYear()};${date.getMonth()+1};${date.getDate()})`;
+    const formattedDate = formatDate(date);
     const updatedRange = `A${lastRow + 1}`;
 
     try {
@@ -124,21 +105,21 @@ async function addOrder(auth, nickname) {
 }
 
 
-router.get('/nicknames', (req, res) => {
+router.get('/orders', (req, res) => {
     authorize()
-        .then(listNicknames)
+        .then(listOrders)
         .then((rows) => {
             if (rows.length > 0) {
-                const nicknames = rows.map(row => row[0].replace('@', ''));
-                const strNicknames = nicknames.join(', ');
+                const orders = rows.map(row => row[0]);
+                const strorders = orders.join(', ');
     
                 res.send({
-                    nicknames: strNicknames
+                    orders: strorders
                 }); 
             }
             else {
                 res.send({
-                    nicknames: 'Nenhum pedido encontrado.'
+                    orders: 'Nenhum pedido encontrado.'
                 });
             }
         })
@@ -146,7 +127,7 @@ router.get('/nicknames', (req, res) => {
 });
 
 router.get('/add/:nickname', (req, res) => {
-    const nickname = req.params.nickname;
+    const nickname = req.params.nickname.replace('@', '');
 
     authorize()
         .then((result) => addOrder(result, nickname))
