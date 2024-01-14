@@ -111,30 +111,27 @@ router.get('/orders', (req, res) => {
         .then((rows) => {
             if (rows.length > 0) {
                 const orders = rows.map(row => row[0]);
-                const strorders = orders.join(', ');
-    
-                res.send({
-                    orders: strorders
-                }); 
-            }
-            else {
-                res.send({
-                    orders: 'Nenhum pedido encontrado.'
-                });
-            }
+                const strOrders = orders.join(', ');
+                res.send({ orders: strOrders }); 
+            } else
+                res.send({ orders: 'Nenhum pedido encontrado.' });
         })
         .catch(console.error);
 });
 
 router.get('/add/:nickname', (req, res) => {
     const nickname = req.params.nickname.replace('@', '');
+    const secret = req.headers['x-nightbot-secret'];
+
+    if (secret !== process.env.NIGHTBOT_SECRET) {
+        res.status(403).send({ message: 'Access Denied' });
+        return;
+    }
 
     authorize()
         .then((result) => addOrder(result, nickname))
         .then(() => {
-            res.send({
-                messagem: 'Pedido enviado com sucesso!',
-            });
+            res.send({ messagem: 'Pedido enviado com sucesso!' });
         })
         .catch(console.error);
 });
