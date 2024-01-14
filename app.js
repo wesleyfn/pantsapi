@@ -1,16 +1,12 @@
 const express = require('express');
 const app = express();
 
-const sheet = require('./routes/api/sketch_order');
+const orders = require('./routes/api/orders');
 
-app.use('/v1', sheet);
+app.use('/v1/orders', orders);
 
 app.get('/', (req, res) => {
     res.send('Hello World! This is Pants API.');
-});
-
-app.get('/v1', (req, res) => {
-    res.redirect('/');
 });
 
 app.listen(3000, () => {

@@ -104,37 +104,39 @@ async function addOrder(auth, nickname) {
     }
 }
 
+router.get('/', (req, res) => {
+    const secret = req.query.secret;
+    const name = req.query.name;
 
-router.get('/orders', (req, res) => {
-    authorize()
-        .then(listOrders)
-        .then((rows) => {
-            if (rows.length > 0) {
-                const orders = rows.map(row => row[0]);
-                const strOrders = orders.join(', ');
-                res.send({ orders: strOrders }); 
-            } else
-                res.send({ orders: 'Nenhum pedido encontrado.' });
-        })
-        .catch(console.error);
-});
-
-router.get('/add/:nickname', (req, res) => {
-    const nickname = req.params.nickname.replace('@', '');
-    const secret = req.headers['x-nightbot-secret'];
-
-    if (secret !== process.env.NIGHTBOT_SECRET) {
-        res.status(403).send({ message: 'Access Denied' });
-        return;
+    if (secret) {
+        // Rota para adicionar um pedido
+        if (secret === process.env.NIGHTBOT_SECRET && name) {
+            authorize()
+                .then((result) => addOrder(result, name.replace('@', '')))
+                .then(() => {
+                    res.send({ message: 'Pedido enviado com sucesso!' });
+                })
+                .catch(console.error);
+        } else {
+            res.status(403).send({ error: 'Acesso Negado!' });
+        }
+    } else {
+        // Rota para listar pedidos
+        authorize()
+            .then(listOrders)
+            .then((rows) => {
+                if (rows.length > 0) {
+                    const orders = rows.map(row => row[0]);
+                    const strOrders = orders.join(', ');
+                    res.send({ orders: strOrders }); 
+                } else {
+                    res.send({ orders: 'Nenhum pedido encontrado.' });
+                }
+            })
+            .catch(console.error);
     }
-
-    authorize()
-        .then((result) => addOrder(result, nickname))
-        .then(() => {
-            res.send({ messagem: 'Pedido enviado com sucesso!' });
-        })
-        .catch(console.error);
 });
+
 
 module.exports = router;
 
