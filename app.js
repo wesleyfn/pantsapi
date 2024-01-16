@@ -1,12 +1,14 @@
 const express = require('express');
+const ordersRoutes = require('./routes/ordersRoutes');
+
 const app = express();
 
-const orders = require('./routes/api/orders');
+// Usar as rotas de pedidos
+app.use('/v1/orders', ordersRoutes);
 
-app.use('/v1/orders', orders);
 
-app.get('/', (req, res) => {
-    res.send('Hello World! This is Pants API.');
+app.get('/', (_req, res) => {
+    res.send('Pants API está ativa!');
 });
 
 app.listen(3000, () => {
