@@ -1,16 +1,16 @@
 const { getAuthSheets } = require('../utils/googleSheets');
 const { formatDate } = require('../utils/formatDate');
 
-async function appendOrder(req, res) {
+async function appendList(req, res) {
     const { googleSheets, spreadsheetId } = await getAuthSheets();
 
-    const name = req.query.name;
+    const item = req.query.item;
     const secret = req.query.secret;
 
-    if (secret !== process.env.NIGHTBOT_SECRET) {
+    if (secret !== process.env.KEY_SECRET) {
         res.status(403).json({
             status: '403',
-            message: 'Você não tem permissão para adicionar dados',
+            message: 'Chave secreta inválida',
         });
         return;
     }
@@ -22,13 +22,13 @@ async function appendOrder(req, res) {
             valueInputOption: 'USER_ENTERED',
             requestBody: {
                 values: [
-                    [formatDate(new Date()), name.replace('@', '')],
+                    [formatDate(new Date()), item.replace('@', '')],
                 ],
             },
         });
         
         res.json({
-            status: '200',
+            status: '201',
             message: 'Dados adicionados com sucesso',
             data: orders.data,
         });
@@ -38,4 +38,4 @@ async function appendOrder(req, res) {
     }
 }
 
-module.exports = { appendOrder };
+module.exports = { appendList };

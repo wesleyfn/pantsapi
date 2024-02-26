@@ -1,11 +1,11 @@
 const express = require('express');
-const ordersRoutes = require('./routes/ordersRoutes');
-const quoteRoutes = require('./routes/quoteRoutes');
+const listRoutes = require('./routes/list');
+const quoteRoutes = require('./routes/quote');
 
 const app = express();
 
 // Usar as rotas de pedidos
-app.use('/v1/orders', ordersRoutes);
+app.use('/v1/list', listRoutes);
 app.use('/v1/quote', quoteRoutes);
 
 
