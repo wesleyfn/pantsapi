@@ -3,8 +3,6 @@ const { formatDate } = require('../utils/formatDate');
 
 async function appendList(req, res) {
     const { googleSheets, spreadsheetId } = await getAuthSheets();
-
-    const items = (req.query.item).replace('@', '').split(','); // Remove o @ e separa os itens por vírgula
     const secret = req.query.secret;
 
     if (secret !== process.env.KEY_SECRET) {
@@ -15,8 +13,12 @@ async function appendList(req, res) {
         return;
     }
 
+    
+    const items = req.query.item;
+    const formattedItems = (items.replace(/@|(^,+)|(,+$)/g, '').split(/,+/)).map(i => i.trim());
+
     try {
-        const data = items.map(item => (
+        const data = formattedItems.map(item => (
             [formatDate(new Date()), item]
         ));
 
