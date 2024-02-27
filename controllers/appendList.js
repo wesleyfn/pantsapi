@@ -4,7 +4,7 @@ const { formatDate } = require('../utils/formatDate');
 async function appendList(req, res) {
     const { googleSheets, spreadsheetId } = await getAuthSheets();
 
-    const items = (req.query.item).replace('@', '').split(' ');
+    const items = (req.query.item).replace('@', '').split(','); // Remove o @ e separa os itens por vírgula
     const secret = req.query.secret;
 
     if (secret !== process.env.KEY_SECRET) {
