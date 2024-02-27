@@ -4,7 +4,7 @@ const { formatDate } = require('../utils/formatDate');
 async function appendList(req, res) {
     const { googleSheets, spreadsheetId } = await getAuthSheets();
 
-    const item = req.query.item;
+    const items = (req.query.item).replace('@', '').split(' ');
     const secret = req.query.secret;
 
     if (secret !== process.env.KEY_SECRET) {
@@ -16,25 +16,26 @@ async function appendList(req, res) {
     }
 
     try {
-        const orders = await googleSheets.spreadsheets.values.append({
+        const data = items.map(item => (
+            [formatDate(new Date()), item]
+        ));
+
+        await googleSheets.spreadsheets.values.append({
             spreadsheetId,
             range: 'Página1!A:B',
             valueInputOption: 'USER_ENTERED',
             requestBody: {
-                values: [
-                    [formatDate(new Date()), item.replace('@', '')],
-                ],
+                values: data,
             },
         });
-        
+
         res.json({
             status: '201',
             message: 'Dados adicionados com sucesso',
-            data: orders.data,
         });
-    } 
+    }
     catch (error) {
-        res.status(500).json({ status: '500', message: 'Erro ao adicionar dados' });
+        res.status(500).json({ status: '500', message: 'Erro ao adicionar dados'});
     }
 }
 
